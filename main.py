@@ -45,7 +45,7 @@ def houghNormal(img_original):
 
                 vertical = line_vertical(x0, y0, x1, y1)
                 if vertical == True:
-                    output_lines.append([(x1, y1), (x2, y2)])
+                    # output_lines.append([(x1, y1), (x2, y2)])
                     vertical_lines.append([(x1, y1), (x2, y2)])
                     cv2.line(img,(x1,y1),(x2,y2),(0,0,255),2)
 
@@ -66,11 +66,11 @@ def houghNormal(img_original):
 
                 vertical = line_vertical(x0, y0, x1, y1)
                 if vertical == False:
-                    output_lines.append([(x1, y1), (x2, y2)])
+                    # output_lines.append([(x1, y1), (x2, y2)])
                     horizontal_lines.append([(x1, y1), (x2, y2)])
                     cv2.line(img,(x1,y1),(x2,y2),(0,0,255),2)
 
-    return img, output_lines, vertical_lines, horizontal_lines
+    return img, vertical_lines, horizontal_lines
 
 
 def erosion(img):
@@ -143,12 +143,15 @@ def get_rect(x, y, vertical_lines, horizontal_lines, img):
     curr_above = None
     curr_left = None
     curr_right = None
-    d_below = img_dim[0]
+    d_below = -10000
     d_above = img_dim[0]
-    d_left = img_dim[1]
+    d_left = -10000
     d_right = img_dim[1]
-    print(len(horizontal_lines))
-    print(len(vertical_lines))
+    # print(len(horizontal_lines))
+    # print(len(vertical_lines))
+    print("Finding Rectangle")
+    print('x: {}, y: {}'.format(x,y))
+    print('Horizontal')
     for line in horizontal_lines:
         x0 = line[0][0]
         y0 = line[0][1]
@@ -159,14 +162,17 @@ def get_rect(x, y, vertical_lines, horizontal_lines, img):
         else:
             line_y = (y0-y1)/(x0-x1)*x+y0
         dy = line_y - y
-        if dy < 0:
-            if dy > d_below:
-                d_below = dy
-                curr_above = line
-        if dy > 0:
-            if dy < d_above:
-                d_above = dy
+        print('Line x0: {}, y0: {}, x1: {}, y1: {}'.format(x0, y0, x1, y1))
+        print('dy: {}'.format(dy))
+        if line_y < y:
+            if line_y > d_below:
+                d_below = line_y
                 curr_below = line
+        if line_y > y:
+            if line_y < d_above:
+                d_above = line_y
+                curr_above = line
+    print('Vertical')
     for line in vertical_lines:
         x0 = line[0][0]
         y0 = line[0][1]
@@ -177,52 +183,63 @@ def get_rect(x, y, vertical_lines, horizontal_lines, img):
         else:
             line_x = (y - y0)/((y0-y1)/(x0-x1))
         dx = line_x - x
-        if dx < 0:
-            if dx > d_left:
-                d_left = dx
-                curr_left = line
-        if dx > 0:
-            if dx < d_right:
-                d_right = dx
+        print('Line x0: {}, y0: {}, x1: {}, y1: {}'.format(x0, y0, x1, y1))
+        print('dx: {}'.format(dx))
+        if line_x > x:
+            if line_x < d_right:
+                d_right = line_x
                 curr_right = line
-    print(d_above)
-    print(d_below)
-    print(d_right)
-    print(d_left)
+        if line_x < x:
+            if line_x > d_left:
+                d_left = line_x
+                curr_left = line
+    print('Chosen Line: L: {}, R: {}, A: {}, B: {}'.format(curr_left, curr_right, curr_above, curr_below))
     return (curr_left, curr_right, curr_above, curr_below)
 
 
 
 def main():
     cap = cv2.VideoCapture(-1)  # Open the webcam device.
-
+    high_H = high_S = high_V = 255
     # Load two initial images from the webcam to begin.
     ret, img0 = cap.read()
     ret, img1 = cap.read()
 
-    hough_img, hough_lines, vertical_lines, horizontal_lines = houghNormal(img0)
+    cv2.imshow('Paper Piano', img0)
+    hough_img, vertical_lines, horizontal_lines = houghNormal(img0)
 
-    
+    cv2.createTrackbar('High H', 'Paper Piano' , 0, 255, nothing)
+    cv2.createTrackbar('High S', 'Paper Piano' , 0, 255, nothing)
+    cv2.createTrackbar('High V', 'Paper Piano' , 0, 255, nothing)   
     cv2.namedWindow('Paper Piano')
     prev_cx = None
     prev_cy = None
     
     while True:
+        high_H = cv2.getTrackbarPos('High H', 'Paper Piano')
+        high_S = cv2.getTrackbarPos('High S', 'Paper Piano')
+        high_V = cv2.getTrackbarPos('High V', 'Paper Piano')
         # Calculate the differences of the two images.
         diffThreshold = cv2.getTrackbarPos('Differencing', 'Paper Piano')
-        diff = cv2.subtract(cv2.cvtColor(img0, cv2.COLOR_BGR2GRAY),
+        
+        hsv_img = cv2.cvtColor(img1, cv2.COLOR_BGR2HSV)
+        mask = cv2.inRange(hsv_img, (0, 128, 80), (255, 255, 255))
+        hsv_img = cv2.bitwise_and(img0, img0, mask=mask)
+
+
+        diff = cv2.subtract(cv2.cvtColor(hsv_img, cv2.COLOR_BGR2GRAY),
                                             cv2.cvtColor(img1, cv2.COLOR_BGR2GRAY))
         ret, diff = cv2.threshold(diff, 120, 255, cv2.THRESH_BINARY)
         # Move the data in img0 to img1. Uncomment this line for differencing from the first frame.
         img1 = img0
         ret, img0 = cap.read()  # Grab a new frame from the camera for img0.
-
+        frame_cpy = img0
         # Use the moments of the difference image to draw the centroid of the difference image.
-        moments = cv2.moments(diff)
-        if moments["m00"] != 0:  # Check for divide by zero errors.
-            cX = int(moments["m10"] / moments["m00"])
-            cY = int(moments["m01"] / moments["m00"])
-            cv2.circle(diff, (cX, cY), 8, (255, 255, 255), -1)
+        # moments = cv2.moments(diff)
+        # if moments["m00"] != 0:  # Check for divide by zero errors.
+        #     cX = int(moments["m10"] / moments["m00"])
+        #     cY = int(moments["m01"] / moments["m00"])
+        #     cv2.circle(diff, (cX, cY), 8, (255, 255, 255), -1)
 
         diff_thresh = erosion(diff)
         diff_thresh = dilation(diff_thresh)
@@ -231,8 +248,10 @@ def main():
         diff_colour = cv2.cvtColor(diff_resize, cv2.COLOR_GRAY2BGR)
         moments = cv2.moments(diff)
 
-        for line in hough_lines:
-            cv2.line(img0,line[0],line[1],(0,0,255),2)
+        for line in vertical_lines:
+            cv2.line(frame_cpy,line[0],line[1],(0,0,255),2)
+        # for line in horizontal_lines:
+        #     cv2.line(frame_cpy,line[0],line[1],(0,0,255),2)
 
         if moments["m00"] != 0:  # Check for divide by zero errors.
             cX = int(moments["m10"] / moments["m00"])
@@ -241,19 +260,19 @@ def main():
                 # cv2.circle(img0, (cX, cY), 8, (255, 0, 0), -1)
                 dx = prev_cx - cX
                 dy = prev_cy - cY
-                # print(dy)
-                if dy < -1 and dx < 2:
-                    lines = get_rect(cX, cY, vertical_lines, horizontal_lines, img0)
+                print('dx: {}, dy: {}'.format(dx, dy))
+                if dy < -1:
+                    lines = get_rect(cX, cY, vertical_lines, horizontal_lines, diff_colour)
                     for line in lines:
                         if line != None:
                             print('{}, {}'.format(cX, cY))
-                            cv2.line(img0, (line[0][0], line[0][1]), (line[1][0], line[1][1]), (255,0,0), 2)
-                    cv2.circle(img0, (cX, cY), 8, (0, 0, 255), -1)
+                            cv2.line(frame_cpy, (line[0][0], line[0][1]), (line[1][0], line[1][1]), (255,0,0), 2)
+                    cv2.circle(frame_cpy, (cX, cY), 8, (0, 0, 255), -1)
             prev_cx = cX
             prev_cy = cY
         diff_colour = diff_colour
         
-        show_img = np.concatenate((img0, hough_img), axis=1)
+        show_img = np.concatenate((frame_cpy, hough_img), axis=1)
         
         # exit(0)
         cv2.imshow('Paper Piano', show_img)  # Display the difference to the screen.
