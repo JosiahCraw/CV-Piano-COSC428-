@@ -199,9 +199,9 @@ def get_rect(x, y, vertical_lines, horizontal_lines, img):
 
 
 def main():
-    cap = cv2.VideoCapture(-1)  # Open the webcam device.
+    cap = cv2.VideoCapture('./output.avi')  # Open the webcam device.
     fourcc = cv2.VideoWriter_fourcc(*'MJPG')
-    out = cv2.VideoWriter('result.avi', fourcc, 20.0, (640, 480))
+    out = cv2.VideoWriter('hsv.avi', fourcc, 20.0, (640, 480))
     high_H = high_S = high_V = 255
     # Load two initial images from the webcam to begin.
     ret, img0 = cap.read()
@@ -275,7 +275,7 @@ def main():
         diff_colour = diff_colour
         
         show_img = np.concatenate((frame_cpy, hough_img), axis=1)
-        out.write(frame_cpy) 
+        out.write(hsv_img) 
         # exit(0)
         cv2.imshow('Paper Piano', show_img)  # Display the difference to the screen.
 
