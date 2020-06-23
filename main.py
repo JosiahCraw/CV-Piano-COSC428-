@@ -200,6 +200,8 @@ def get_rect(x, y, vertical_lines, horizontal_lines, img):
 
 def main():
     cap = cv2.VideoCapture(-1)  # Open the webcam device.
+    fourcc = cv2.VideoWriter_fourcc(*'MJPG')
+    out = cv2.VideoWriter('result.avi', fourcc, 20.0, (640, 480))
     high_H = high_S = high_V = 255
     # Load two initial images from the webcam to begin.
     ret, img0 = cap.read()
@@ -235,11 +237,11 @@ def main():
         ret, img0 = cap.read()  # Grab a new frame from the camera for img0.
         frame_cpy = img0
         # Use the moments of the difference image to draw the centroid of the difference image.
-        # moments = cv2.moments(diff)
-        # if moments["m00"] != 0:  # Check for divide by zero errors.
-        #     cX = int(moments["m10"] / moments["m00"])
-        #     cY = int(moments["m01"] / moments["m00"])
-        #     cv2.circle(diff, (cX, cY), 8, (255, 255, 255), -1)
+        moments = cv2.moments(diff)
+        if moments["m00"] != 0:  # Check for divide by zero errors.
+            cX = int(moments["m10"] / moments["m00"])
+            cY = int(moments["m01"] / moments["m00"])
+            cv2.circle(diff, (cX, cY), 8, (255, 255, 255), -1)
 
         diff_thresh = erosion(diff)
         diff_thresh = dilation(diff_thresh)
@@ -250,8 +252,8 @@ def main():
 
         for line in vertical_lines:
             cv2.line(frame_cpy,line[0],line[1],(0,0,255),2)
-        # for line in horizontal_lines:
-        #     cv2.line(frame_cpy,line[0],line[1],(0,0,255),2)
+        for line in horizontal_lines:
+            cv2.line(frame_cpy,line[0],line[1],(0,0,255),2)
 
         if moments["m00"] != 0:  # Check for divide by zero errors.
             cX = int(moments["m10"] / moments["m00"])
@@ -273,7 +275,7 @@ def main():
         diff_colour = diff_colour
         
         show_img = np.concatenate((frame_cpy, hough_img), axis=1)
-        
+        out.write(frame_cpy) 
         # exit(0)
         cv2.imshow('Paper Piano', show_img)  # Display the difference to the screen.
 
